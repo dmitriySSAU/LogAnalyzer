@@ -1,16 +1,46 @@
-import json
+import threading
 
 from init.log import Log
+from common import tools
+from collect.collector import Collector
 
 
-class Analyzer:
-    def __init__(self, input_settings):
-        self._input_settings = input_settings
+class Analyzer(threading.Thread):
+    """Данный класс реализует логику pipeline: сбор, обработка, анализ, архив и вывод результатов.
+
+    """
+
+    def __init__(self, input_settings: dict):
+        super().__init__()
+
         self._is_run = False
+        self._is_run_locker = threading.Lock()
 
-        if "log" not in input_settings:
-            raise AssertionError("There is no key 'log' in input settings!")
-        self.log = Log(input_settings["log"])
+        tools.check_dict_key_exists(input_settings, ["log", "collector"], "input_settings", True)
+        self._log = Log(input_settings["log"])
+        self._collector = Collector(input_settings["collector"], self._log)
 
-    def run(self):
+    def stop(self) -> None:
+        """Полная остановка анализатора.
+
+        """
+        self._is_run_locker.acquire()
+        self._is_run = False
+        self._is_run_locker.release()
+
+    def run(self) -> None:
+        """Метод запуска логики pipeline.
+
+        """
+        self._is_run_locker.release()
         self._is_run = True
+
+        self._collector.start()
+
+        while True:
+            self._is_run_locker.acquire()
+            if self._is_run is False:
+                self._is_run_locker.release()
+                break
+            self._is_run_locker.release()
+
