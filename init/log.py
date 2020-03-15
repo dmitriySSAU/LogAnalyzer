@@ -16,7 +16,7 @@ class Log:
         if not self._settings["indexing"]:
             self._is_indexing = False
         else:
-            tools.check_dict_key_exists(self._settings["indexing"], ["positions", "format", "from", "to"],
+            tools.check_dict_key_exists(self._settings["indexing"], ["positions", "format", "from", "to", "cycling"],
                                         '_settings["indexing"]', True)
 
     def get_settings(self) -> dict:
