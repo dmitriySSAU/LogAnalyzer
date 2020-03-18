@@ -10,7 +10,7 @@ class Log:
     def __init__(self, input_settings: dict):
         tools.check_dict_key_exists(input_settings, ["groupName", "logName", "patterns"], "input_settings", True)
         self._settings: dict = log.get_settings(input_settings["groupName"], input_settings["logName"])
-        tools.check_dict_key_exists(self._settings, ["groupName", "logName", "patterns", "file_name", "format",
+        tools.check_dict_key_exists(self._settings, ["groupName", "logName", "patterns", "path", "file_name", "format",
                                                      "write_mode", "repeat_time", "indexing"], "log_settings", True)
         self._is_indexing: bool = True
         if not self._settings["indexing"]:
@@ -25,6 +25,13 @@ class Log:
         :return: настройки лога
         """
         return self._settings
+
+    def get_path(self) -> str:
+        """
+
+        :return:
+        """
+        return self._settings["path"]
 
     def get_file_name(self) -> str:
         """Получение имени файла лога.
