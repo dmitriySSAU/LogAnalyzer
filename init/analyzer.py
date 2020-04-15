@@ -36,11 +36,17 @@ class Analyzer(threading.Thread):
         self._is_run = True
 
         self._collector.start()
-
+        data_queue = self._collector.get_data_queue()
         while True:
+
             self._is_run_locker.acquire()
             if self._is_run is False:
                 self._is_run_locker.release()
                 break
             self._is_run_locker.release()
+            collected_data: dict = {}
+            collected_data = data_queue.get(timeout=self._log.get_repeat_time() + 5)
+            if not collected_data:
+                raise AssertionError("There is no data! Time out!!!")
+
 

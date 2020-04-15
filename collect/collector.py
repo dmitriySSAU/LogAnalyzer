@@ -1,8 +1,6 @@
-import os
 import threading
 from queue import Queue
 
-from common import tools
 from init.log import Log
 
 from collect.file import File
@@ -21,23 +19,20 @@ class Collector(threading.Thread):
 
         self._data_queue: Queue = Queue()
         self._log: Log = log
-        self._log_info = {
-            "path": self._log.get_path(),
-            "file_name": self._log.get_file_name(),
-            "format_file": self._log.get_format(),
-            "write_mode": self._log.get_write_mode(),
-            "repeat_time": self._log.get_repeat_time(),
-            "indexing": self._log.get_indexing(),
-        }
 
-        self._current_file: File = File(self._log_info)
-        self._previous_file: File = File(self._log_info)
+        self._current_file: File = File(self._log)
+        self._previous_file: File = File(self._log)
 
-        tools.check_dict_key_exists(collector_settings, ["buffer_len", "max_file_size", "path", "waiting_limit"],
-                                    "collector_settings", True)
         self._buffer_len: int = collector_settings["buffer_len"]
         self._max_file_size: int = collector_settings["max_file_size"]
         self._waiting_limit = collector_settings["waiting_limit"]
+
+    def get_data_queue(self):
+        """Метод доступа к полю класса _data_queue
+
+        :return: очередь пакетов собранных данных из лога
+        """
+        return self._data_queue
 
     def run(self) -> None:
         """Переопределенная функция запуска потока.
@@ -46,7 +41,7 @@ class Collector(threading.Thread):
         """
         self._is_run = True
 
-        if self._log_info["indexing"]:
+        if self._log.is_indexing():
             self._start_collecting_indexing_log()
 
     def stop(self) -> None:
@@ -67,12 +62,16 @@ class Collector(threading.Thread):
             return False
 
     def _start_collecting_indexing_log(self) -> None:
-        collected_file_info: dict = {}
+        is_current_collected = False
+        self._current_file.update_file_info()
+
+        # инициализация объекта File, в котором будет храниться ссылка на файл, из которого нужно собрать данные
+        file_to_collect: File = File(self._log)
         while True:
             if self._is_stop():
                 break
 
-            if self._current_file.get_file_info() == self._previous_file.get_file_info():
+            if is_current_collected:
                 self._current_file.update_file_info()
 
             waiting_count = 0
@@ -89,33 +88,32 @@ class Collector(threading.Thread):
                             return None
                         continue
                 elif file_collect_number == 1:
-                    collected_file_info = self._current_file.get_file_info()
+                    file_to_collect = self._current_file
+                    is_current_collected = True
                     break
                 elif file_collect_number == 2:
-                    collected_file_info = self._previous_file.get_file_info()
+                    file_to_collect = self._previous_file
+                    is_current_collected = False
                     break
                 else:
                     raise AssertionError("")
 
-            collected_data: dict = self._collect_data(collected_file_info)
-            self._data_queue.put(collected_data)
-
-            self._previous_file.set_file_info(collected_file_info)
+            self._collect_data(file_to_collect)
 
     def _waiting_for_collect(self) -> int:
         if self._previous_file is None:
             old_hash: str = self._current_file.get_hash()
-            if self._current_file.waiting_for_file(self._log_info["repeat_time"]) is False:
+            if self._current_file.waiting_for_file(self._log.get_repeat_time()) is False:
                 return 0
             current_hash: str = self._current_file.get_hash()
             if old_hash != current_hash:
                 return 1
-            if self._current_file.waiting_for_hash_change((self._log_info["repeat_time"])):
+            if self._current_file.waiting_for_hash_change((self._log.get_repeat_time())):
                 return 1
             else:
                 return 0
         else:
-            next_file_exist = self._current_file.waiting_for_file((self._log_info["repeat_time"]))
+            next_file_exist = self._current_file.waiting_for_file((self._log.get_repeat_time()))
             old_hash_old_file = self._previous_file.get_hash()
             self._previous_file.update_hash()
             current_hash_old_file = self._previous_file.get_hash()
@@ -126,23 +124,32 @@ class Collector(threading.Thread):
             else:
                 return 2
 
-    def _collect_data(self, file_info: dict) -> dict:
+    def _collect_data(self, file: File) -> None:
+        if self._log.get_write_mode() == "single-time" and file.get_size() <= self._max_file_size:
+            read_mode = "all"
+        else:
+            read_mode = "buffer"
+
         lines_buffer: list = []
-        full_path = os.path.join(self._path, file_info["full_name"])
-        with open(full_path, encoding="utf-8") as log_file:
-            if file_info["write_mode"] == "single-time" and file_info["size"] > self._max_file_size:
+        last_line_index = 0
+        with open(file.get_full_path(), encoding="utf-8") as log_file:
+            if read_mode == "buffer":
                 for index, line in enumerate(log_file):
-                    if index < file_info["line_index"] + 1:
+                    if index < file.get_line_index() + 1:
                         continue
                     if len(lines_buffer) < self._buffer_len:
                         lines_buffer.append(line)
+                        last_line_index = index
+                    else:
+                        self._data_queue.put({
+                            "name": file.get_full_name(),
+                            "data": lines_buffer
+                        })
+                        lines_buffer.clear()
+                        file.set_last_line_index(last_line_index)
+                        continue
             else:
                 lines_buffer = log_file.readlines()
 
         if not lines_buffer:
             raise AssertionError("There is no data after collecting!")
-
-        return {
-            "name": file_info["full_name"],
-            "data": lines_buffer
-        }

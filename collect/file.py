@@ -2,88 +2,115 @@ import hashlib
 import os
 import time
 
+from init.log import Log
+
 
 def format_converter(index: int, count_zeros: int) -> str:
-    """
+    """Функция изменения формата индекса.
 
-    :param index:
-    :param count_zeros:
-    :return:
+    :param index: индекс
+    :param count_zeros: количество нулей перед индексом
+    :return: отформатированный индекс.
     """
     return "{:0" + str(count_zeros) + "d}".format(index)
 
 
 class File:
-    def __init__(self, log_info: dict):
-        self._log_info: dict = log_info
-        self._file_info: dict = None
+    """Класс Файл, предназначенный для хранения информации о файле журнала, из которого идет сбор данных.
 
-    def get_full_path(self):
-        """
+    """
+    def __init__(self, log: Log):
+        self._log = log
+        self._full_name = ""
+        self._full_path = ""
+        self._current_index = -1
+        self._last_line_index = -1
+        self._size = -1
+        self._hash = ""
 
-        :return:
-        """
-        return self._file_info["full_path"]
+    def get_full_path(self) -> str:
+        """Метод-геттер поля full_path.
 
-    def get_file_info(self) -> dict:
-        """
+        Полный путь до файла.
 
-        :return:
+        :return: поле full_path.
         """
-        return self._file_info
+        return self._full_path
 
-    def set_file_info(self, file_info: dict) -> None:
-        """
+    def get_full_name(self) -> str:
+        """Метод-геттер поля full_name.
 
-        :param file_info:
+        Полное имя файла с индексом.
+
+        :return: поле full_name.
         """
-        self._file_info = file_info
+        return self._full_name
+
+    def get_size(self) -> int:
+        """Метод-геттер поля size.
+
+        Размер файла.
+
+        :return: поле size.
+        """
+        return self._size
+
+    def get_current_index(self) -> int:
+        """Метод-геттер поля current_index.
+
+        Индекс файла, который присутствует в его полном имени.
+
+        :return: поле current_index.
+        """
+        return self._current_index
+
+    def get_line_index(self) -> int:
+        """Метод-геттер поля line_index.
+
+        Индекс строки, на котором остановилось чтение файла в крайний раз.
+
+        :return: поле line_index.
+        """
+        return self._last_line_index
+
+    def set_last_line_index(self, last_line_index: int) -> None:
+        """Метод-сеттер нового значения поля last_line_index
+
+        :param last_line_index: новое значение поля
+        """
+        self._last_line_index = last_line_index
 
     def get_hash(self) -> str:
-        """
+        """Метод-геттер поля hash.
+
+        Хэш от даты изменения файла.
 
         :return:
         """
-        return self._file_info["hash"]
+        return self._hash
 
-    def update_file_info(self) -> dict:
+    def update_file_info(self) -> None:
         """Метод получения информации о файле, из которого нужно считать.
 
         :return: информация о файле
         """
-        if self._file_info is None:
-            self._file_info = {
-                "full_name": "",
-                "full_path": "",
-                "index": -1,
-                "read_mode": "",
-                "line_index": -1,
-                "size": -1,
-                "hash": ""
-            }
+        if self._log.is_indexing():
+            simple_file_info = self._get_next_name_and_index()
+            self._full_name = simple_file_info["full_name"]
+            self._current_index = simple_file_info["index"]
 
-            if self._log_info["write_mode"] == "gradual":
-                self._file_info["read_mode"] = "buffer"
+        self._full_path = os.path.join(self._log.get_path(), self._full_name)
 
-        if self._log_info["indexing"]:
-            simple_file_info = self.get_next_name_and_index()
-            self._file_info["full_name"] = simple_file_info["full_name"]
-            self._file_info["index"] = simple_file_info["index"]
-
-        self._file_info["full_path"] = os.path.join(self._log_info["path"], self._file_info["full_name"])
-
-        return self._file_info
-
-    def get_next_name_and_index(self) -> dict:
+    def _get_next_name_and_index(self) -> dict:
         """
 
         :return:
         """
         next_index = self._get_next_index()
         formatted_index = self._get_formatted_index(next_index)
-        position = str(self._log_info["indexing"]["position"])
+        position = str(self._log.get_indexing_full_file_name())
         return {
-            "full_name": position.replace("$ind#$", formatted_index) + "." + self._log_info["format"],
+            "full_name": position.replace("$ind#$", formatted_index) + "." + self._log.get_format(),
             "index": next_index
         }
 
@@ -92,11 +119,11 @@ class File:
 
         :return:
         """
-        next_index = self._file_info["index"] + 1
-        if next_index < self._log_info["indexing"]["to"]:
+        next_index = self._current_index + 1
+        if next_index < self._log.get_end_index():
             return next_index
-        elif self._log_info["indexing"]["cycling"]:
-            return self._log_info["indexing"]["from"]
+        elif self._log.is_indexing_cycle():
+            return self._log.get_start_index()
         else:
             return -1
 
@@ -106,25 +133,23 @@ class File:
         :param index:
         :return:
         """
-        count_zeros = len(self._log_info["indexing"]["format"]) - len(str(index))
+        count_zeros = len(self._log.get_format()) - len(str(index))
         return format_converter(index, count_zeros)
 
     def update_hash(self) -> None:
         """
 
-        :param file_dir_path:
         :return:
         """
-        file_change_time = os.path.getmtime(self._file_info["full_path"])
-        self._file_info["hash"] = hashlib.md5(str(file_change_time))
+        file_change_time = os.path.getmtime(self._full_path)
+        self._hash = hashlib.md5(str(file_change_time))
 
     def update_size(self) -> None:
         """
 
-        :param full_path:
         :return:
         """
-        self._file_info["size"] = os.path.getsize(self._file_info["full_path"])
+        self._size = os.path.getsize(self._full_path)
 
     def waiting_for_hash_change(self, timeout: int) -> bool:
         """
@@ -145,10 +170,10 @@ class File:
                 return False
 
     def waiting_for_file(self, timeout: int) -> bool:
-        """
+        """Метод ожидания существования файла.
 
-        :param timeout:
-        :return:
+        :param timeout: таймаут ожидания
+        :return: флаг существования файла
         """
         elapsed_time = 0
         while os.path.isfile(self.get_full_path()) is False:
