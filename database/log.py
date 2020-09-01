@@ -1,31 +1,55 @@
-from typing import List
-from database import db
-from patterns.pattern import Pattern
+from database.db import DataBase
 
 
-def get_settings(log_group_name: str, log_name: str) -> dict:
-    """Получение настроек лог файла из БД.
+def create_log_group(database: DataBase, log_group_name: str, description: str) -> int:
+    """Функция создания группы журналов.
 
-    :param log_group_name: имя группы
-    :param log_name: имя лога
-    :return: настройки лога
+    :param database: объект класса БД;
+    :param log_group_name: имя группы;
+    :param description: описание группы.
+
+    :return: код выполнения запроса:
+                0 - успешно;
+               -1 - не соблюдена уникальность имени группы шаблона;
     """
-    return {
-        "path": "D:\\cpu",
-        "format": "txt",
-        "write_mode": "single-time",
-        "repeat_timeout": 30,
-        "indexing": {
-            "is_indexing": True,
-            "full_file_name": "cpu001",
-            "index_format": "###",
-            "start": 1,
-            "end": 30,
-            "cycle": True
-        }
-    }
+    return database.insert_log_group(log_group_name, description)
 
 
-def get_patterns(patternsGroup: str) -> List[Pattern]:
+def get_log_group_names(database: DataBase) -> tuple:
+    """Функция получения групп шаблонов
 
-    return []
+    :param database: объъект класса БД.
+
+    :return: список групп шаблонов.
+    """
+    return database.get_log_group_names()
+
+
+def get_log_group_description(database: DataBase, log_group_name: str) -> str:
+    """Функция получения описания группы шаблонов.
+
+    :param database: объект класса БД;
+    :param log_group_name: имя группы шаблонов.
+
+    :return: описание группы шаблонов. Если из Бд вернулось "", то это ошибка, такого быть не должно,
+            по какой-то причине группа шаблонов с таким именем не была найдена.
+    """
+    description = database.get_log_group_description(log_group_name)
+    assert description, "[1001] Группы шаблонов " + log_group_name + " не существует!"
+    return description
+
+
+def edit_log_group_info(database: DataBase, current_name: str, new_name: str, new_description: str) -> int:
+    """Функция редактирования информации по группе журналов (имя и описание).
+
+    :param database: объект класса БД;
+    :param current_name: старое имя;
+    :param new_name: новое имя;
+    :param new_description: новое описание.
+
+    :return: код выполнения запроса:
+                0 - успешно;
+               -1 - не соблюдена уникальность имени группы шаблона;
+    """
+    return database.update_log_group_info(current_name, new_name, new_description)
+

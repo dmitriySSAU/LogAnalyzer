@@ -5,12 +5,14 @@ from patterns.information import Information
 
 
 def get_strings(pattern_name: str) -> List[String]:
-    return []
+    return [String("Строка 1")]
 
 
 def get_information(string_name) -> List[Information]:
-    return []
+    return [Information("Информация 1")]
 
 
 def get_info_settings(info_name) -> dict:
-    return {}
+    return {
+        "start": "cpu146=",
+    }
