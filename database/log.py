@@ -35,7 +35,7 @@ def get_log_group_description(database: DataBase, log_group_name: str) -> str:
             по какой-то причине группа шаблонов с таким именем не была найдена.
     """
     description = database.get_log_group_description(log_group_name)
-    assert description, "[1001] Группы шаблонов " + log_group_name + " не существует!"
+    assert description != "NULL", "[1001] Группы шаблонов " + log_group_name + " не существует!"
     return description
 
 

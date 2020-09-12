@@ -101,7 +101,7 @@ Window {
                         sourceSize.height: 25
                         sourceSize.width: 25
                         ToolTip.visible: ma1.containsMouse ? true : false
-                        ToolTip.text: groupLogCB.currentValue == undefined ? "Здесь будет отображено описание выбранной группы журналов" : Tools.get_log_group_description(groupLogCB.currentValue)
+                        //ToolTip.text: groupLogCB.currentValue == undefined ? "Здесь будет отображено описание выбранной группы журналов" : Tools.get_log_group_description(groupLogCB.currentValue)
                         source: ma1.containsMouse ? "../../images/help_hover.png" : "../../images/help_usual.png"
                         MouseArea {
                             id: ma1

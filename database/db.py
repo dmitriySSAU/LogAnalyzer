@@ -85,7 +85,7 @@ class DataBase:
         parameters = (name, )
         result = self._execute_select_cmd(sql_cmd, parameters)
         if not result:
-            return ""
+            return "NULL"
         return result[0][0]
 
     def update_log_group_info(self, current_name: str, new_name: str, new_description: str) -> int:

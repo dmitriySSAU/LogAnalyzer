@@ -29,7 +29,6 @@ Rectangle {
 	    text: ""
 	}
 
-
     // основная разметка окна
     RowLayout {
         // ПЕРВАЯ КОЛОНКА с выбором группы лога и лога
@@ -50,6 +49,7 @@ Rectangle {
                     model: Tools.get_modify_log_groups(Tools.get_log_groups())
                     editable: currentIndex == 0 || editModeLogGroup ? true : false
                 }
+                // кнопка редактирования группы лога
                 Image {
                     sourceSize.height: 25
                     sourceSize.width: 25
@@ -62,25 +62,25 @@ Rectangle {
                         hoverEnabled: true
                         anchors.fill: parent
                         onClicked:  {
-                            editModeLogGroup = true;
-                            currentName = logGroupCB.currentValue;
+                            editModeLogGroup = true
                         }
-
                     }
                 }
+                // кнопка удаления группы лога
                 Image {
                     sourceSize.height: 25
                     sourceSize.width: 25
                     visible: logGroupCB.currentIndex > 0 && editModeLogGroup == false ? true : false
-                    ToolTip.visible: ma2.containsMouse ? true : false
+                    ToolTip.visible: deleteLogGroupMA.containsMouse ? true : false
                     ToolTip.text: "Удалить"
-                    source: ma2.containsMouse ? "../../images/delete_bin_hover.png" : "../../images/delete_bin_usual.png"
+                    source: deleteLogGroupMA.containsMouse ? "../../images/delete_bin_hover.png" : "../../images/delete_bin_usual.png"
                     MouseArea {
-                        id: ma2
+                        id: deleteLogGroupMA
                         hoverEnabled: true
                         anchors.fill: parent
                     }
                 }
+                // кнопка сохранения группы лога
                 Image {
                     sourceSize.height: 25
                     sourceSize.width: 25
@@ -93,21 +93,20 @@ Rectangle {
                         hoverEnabled: true
                         anchors.fill: parent
 						onClicked: {
-						    var result;
-						    console.log(1);
+						    var code;
+                            var currentIndex = logGroupCB.currentIndex;
 						    if (editModeLogGroup)
 						    {
-                                console.log(2);
-                                result = dbEditor.edit_log_group_info(currentName, logGroupCB.editText, descriptionLogGroup.text);
-                                currentName = ""
+                                code = dbEditor.edit_log_group_info(logGroupCB.currentValue, logGroupCB.editText, descriptionLogGroup.text);
+                                logGroupCB.currentIndex = currentIndex;
                                 editModeLogGroup = false;
 						    }
 						    else
-						        result = dbEditor.create_log_group(logGroupCB.editText, descriptionLogGroup.text);
+						        code = dbEditor.create_log_group(logGroupCB.editText, descriptionLogGroup.text);
 							messageDialog.title = "Редактирование БД";
-							if (result == 0)
+							if (code == 0)
 							    messageDialog.text = "Группа шаблонов успешно сохранена!";
-							else if (result == -1)
+							else if (code == -1)
 							    messageDialog.text = "Группа шаблонов с таким именем уже существует!";
 							messageDialog.visible = true;
 						}
@@ -135,7 +134,7 @@ Rectangle {
                         font.pointSize: 12
                         font.family: "Times New Roman"
                         enabled: logGroupCB.currentIndex == 0 || editModeLogGroup ? true : false
-                        text: logGroupCB.currentValue != undefined && logGroupCB.currentValue != "Создать группу" && editModeLogGroup == false ? Tools.get_log_group_description(logGroupCB.currentValue) : text
+                        text: logGroupCB.currentValue !== undefined && logGroupCB.currentValue !== "Создать группу" && editModeLogGroup == false ? Tools.get_log_group_description(logGroupCB.currentValue) : text
                     }
                 }
             }
